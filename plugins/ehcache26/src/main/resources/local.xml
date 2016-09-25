@@ -6,6 +6,6 @@
                  overflowToDisk="false"/>
 
 
-   <cache name="test" maxEntriesLocalHeap="1000000" eternal="true"
+   <cache name="testCache" maxEntriesLocalHeap="1000000" eternal="true"
           overflowToDisk="false" />
 </ehcache>

@@ -293,7 +293,7 @@
    This cache replicates using defaults except that the asynchronous replication
    interval is set to 200ms.
    -->
-   <cache name="cache"
+   <cache name="testCache"
           maxElementsInMemory="1000000"
           eternal="true"
           overflowToDisk="false">
