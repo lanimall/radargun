@@ -43,6 +43,14 @@ public abstract class SlaveBase {
       try {
          log.info("Service is " + service.getClass().getSimpleName() + PropertyHelper.toString(service));
          traits = TraitHelper.retrieve(service);
+          if(log.isDebugEnabled()) {
+              log.debug("Retrieving the traits for service");
+              for (Class<?> traitClazz : traits.keySet()) {
+                  Object traitValue = traits.get(traitClazz);
+                  log.debug("Retrieved trait: " + traitClazz.getSimpleName() + " with type = " + ((null != traitValue) ? traitValue.getClass().getSimpleName() : "null") + " and string value= " + ((null != traitValue) ? traitValue.toString() : "null"));
+              }
+          }
+
          state.setTraits(traits);
          for (; ; ) {
             int stageId = getNextStageId();
@@ -61,6 +69,7 @@ public abstract class SlaveBase {
             Exception initException = null;
             try {
                result = TraitHelper.inject(stage, traits);
+                log.debug("Trait inject result = " + result.toString());
                InitHelper.init(stage);
                stage.initOnSlave(state);
             } catch (Exception e) {

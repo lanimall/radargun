@@ -1,5 +1,8 @@
 package org.radargun.traits;
 
+import org.radargun.logging.Log;
+import org.radargun.logging.LogFactory;
+
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Collections;
@@ -14,7 +17,9 @@ import java.util.Set;
  * @author Radim Vansa &lt;rvansa@redhat.com&gt;
  */
 public class TraitHelper {
-   public enum InjectResult {
+    protected static final Log log = LogFactory.getLog(TraitHelper.class);
+
+    public enum InjectResult {
       SUCCESS,
       FAILURE,
       SKIP
@@ -42,10 +47,13 @@ public class TraitHelper {
                throw new IllegalArgumentException("Field " + f + " wants a trait to be injected but its type is not a trait.");
             }
             Object traitImpl = traits == null ? null : traits.get(f.getType());
+
+            log.debug("Field " + f.getName() + " of type " + f.getType() + " was found in the provided trait with value of type = " + ((null != traitImpl) ? traitImpl.getClass().getSimpleName() : "null") + "and string value = " + ((null != traitImpl)?traitImpl.toString():"null"));
             if (traitImpl != null) {
                f.setAccessible(true);
                try {
-                  f.set(target, traitImpl);
+                   f.set(target, traitImpl);
+                   log.debug("Successfully set Field " + f.getName() + " of target object " + target.getClass().getSimpleName() + " with object value of type = " + ((null != traitImpl) ? traitImpl.getClass().getSimpleName() : "null"));
                } catch (IllegalAccessException e) {
                   throw new RuntimeException("Cannot set trait to field " + f, e);
                }
