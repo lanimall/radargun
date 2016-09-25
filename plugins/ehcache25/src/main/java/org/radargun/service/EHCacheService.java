@@ -9,7 +9,10 @@ import java.util.List;
 import net.sf.ehcache.CacheManager;
 import net.sf.ehcache.Ehcache;
 import net.sf.ehcache.Status;
+import net.sf.ehcache.distribution.CacheManagerPeerListener;
+import net.sf.ehcache.distribution.CacheManagerPeerProvider;
 import org.radargun.Service;
+import org.radargun.config.Init;
 import org.radargun.config.Property;
 import org.radargun.logging.Log;
 import org.radargun.logging.LogFactory;
@@ -28,79 +31,95 @@ import org.radargun.traits.ProvidesTrait;
  */
 @Service(doc = "EHCache")
 public class EHCacheService implements Lifecycle, Clustered {
-   private final static Log log = LogFactory.getLog(EHCacheService.class);
-   protected static final String RMI_SCHEME = "RMI";
+    protected final Log log = LogFactory.getLog(getClass());
+    private final boolean trace = log.isTraceEnabled();
 
-   protected CacheManager manager;
-   //private Ehcache cache;
+    protected static final String RMI_SCHEME = "RMI";
 
-   @Property(name = "file", doc = "Configuration file.", deprecatedName = "config")
-   private String configFile;
-   @Property(name = "cache", doc = "Name of the default cache. Default is 'testCache'.")
-   protected String cacheName = "testCache";
+    protected CacheManager manager;
+    //private Ehcache cache;
 
-   @ProvidesTrait
-   public EHCacheService getSelf() {
-      return this;
-   }
+    @Property(name = "file", doc = "Configuration file.", deprecatedName = "config")
+    private String configFile;
+    @Property(name = "cache", doc = "Name of the default cache. Default is 'testCache'.")
+    protected String cacheName = "testCache";
 
-   @ProvidesTrait
-   public EHCacheOperations createOperations() {
-      return new EHCacheOperations(this);
-   }
+    @ProvidesTrait
+    public EHCacheService getSelf() {
+        return this;
+    }
 
-   @ProvidesTrait
-   public EHCacheInfo createInfo() {
-      return new EHCacheInfo(this);
-   }
+    @ProvidesTrait
+    public EHCacheOperations createOperations() {
+        return new EHCacheOperations(this);
+    }
 
-   @Override
-   public synchronized void start()  {
-      if (log.isTraceEnabled()) log.trace("Entering EHCacheService.setUp()");
-      log.debug("Initializing the cache with " + configFile);
-      URL url = getClass().getClassLoader().getResource(configFile);
-      manager = new CacheManager(url);
-      log.info("Caches available:");
+    @ProvidesTrait
+    public EHCacheInfo createInfo() {
+        return new EHCacheInfo(this);
+    }
 
-      for (String s : manager.getCacheNames()) log.info("    * " + s);
+    @Override
+    public synchronized void start()  {
+        if (trace) log.trace("Entering EHCacheService.setUp()");
+        log.debug("Initializing the cache with " + configFile);
 
-      log.info("Bounded peers: " + manager.getCachePeerListener(RMI_SCHEME).getBoundCachePeers());
-      log.info("Remote peers: " + manager.getCacheManagerPeerProvider(RMI_SCHEME).listRemoteCachePeers(getCache(null)));
+        URL url = getClass().getClassLoader().getResource(configFile);
+        if(url == null)
+            throw new IllegalStateException("Config file " + configFile + " was not be found. Check scenario configuration");
 
-      log.debug("Finish Initializing the cache");
-   }
+        manager = new CacheManager(url);
+        if(manager == null)
+            throw new IllegalStateException("Cache manager is null. Check scenario configuration");
 
-   @Override
-   public synchronized void stop() {
-      manager.shutdown();
-   }
+        log.info("Caches available:");
+        for (String s : manager.getCacheNames()) log.info("    * " + s);
 
-   @Override
-   public synchronized boolean isRunning() {
-      return manager.getStatus() == Status.STATUS_ALIVE;
-   }
+        CacheManagerPeerListener peerListener = manager.getCachePeerListener(RMI_SCHEME);
+        if(null != peerListener)
+            log.info("Bounded peers: " + peerListener.getBoundCachePeers());
 
-   public Ehcache getCache(String cacheName) {
-      return manager.getCache(cacheName);
-   }
+        CacheManagerPeerProvider peerProvider = manager.getCacheManagerPeerProvider(RMI_SCHEME);
+        if(null != peerProvider)
+            log.info("Remote peers: " + peerProvider.listRemoteCachePeers(getCache(null)));
 
-   @Override
-   public boolean isCoordinator() {
-      return false;
-   }
+        log.debug("Finish Initializing the cache");
+    }
 
-   @Override
-   public Collection<Member> getMembers() {
-      ArrayList<Member> members = new ArrayList<>();
-      for (Object peer: manager.getCacheManagerPeerProvider("RMI").listRemoteCachePeers(getCache(null))) {
-         members.add(new Member(peer.toString(), false, false));
-      }
-      members.add(new Member("localhost", true, false));
-      return members;
-   }
+    @Override
+    public synchronized void stop() {
+        manager.shutdown();
+    }
 
-   @Override
-   public List<Membership> getMembershipHistory() {
-      return Collections.EMPTY_LIST; //TODO
-   }
+    @Override
+    public synchronized boolean isRunning() {
+        return manager != null && manager.getStatus() == Status.STATUS_ALIVE;
+    }
+
+    public Ehcache getCache(String cacheName) {
+        return manager.getCache(cacheName);
+    }
+
+    @Override
+    public boolean isCoordinator() {
+        return false;
+    }
+
+    @Override
+    public Collection<Member> getMembers() {
+        ArrayList<Member> members = new ArrayList<>();
+        CacheManagerPeerProvider peerProvider = manager.getCacheManagerPeerProvider(RMI_SCHEME);
+        if(null != peerProvider) {
+            for (Object peer : peerProvider.listRemoteCachePeers(getCache(null))) {
+                members.add(new Member(peer.toString(), false, false));
+            }
+        }
+        members.add(new Member("localhost", true, false));
+        return members;
+    }
+
+    @Override
+    public List<Membership> getMembershipHistory() {
+        return Collections.EMPTY_LIST; //TODO
+    }
 }
